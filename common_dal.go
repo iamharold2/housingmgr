@@ -1,6 +1,7 @@
 package mssqldal
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
@@ -13,6 +14,7 @@ import (
 const SQLTYPE = "mssql"
 
 var ConnString string = ""
+var ctx context.Context
 
 func Get_pagination(sqlCount int, rowsCount int, page int, pageSize int) *PaginationModel {
 	Pagination := PaginationModel{}
@@ -199,7 +201,7 @@ func GetListReturnMaps(sqlstring string) ([]map[string]interface{}, error) {
 }
 func ExecuteNonQuery(sqlstring string) error {
 
-	conn, err := sql.Open("mssql", ConnString)
+	conn, err := sql.Open(SQLTYPE, ConnString)
 	if err != nil {
 		return err
 	}
@@ -212,6 +214,26 @@ func ExecuteNonQuery(sqlstring string) error {
 	defer stmt.Close()
 	_, err = stmt.Exec()
 	if err != nil {
+		return err
+	}
+	return nil
+}
+func ExecuteNonQueryTran(sqlstring string) error {
+	conn, err := sql.Open(SQLTYPE, ConnString)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(sqlstring)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	if err = tx.Commit(); err != nil {
 		return err
 	}
 	return nil
