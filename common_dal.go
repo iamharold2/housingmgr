@@ -1,18 +1,16 @@
 package mssqldal
 
 import (
-	//"bufio"
-
 	"database/sql"
 	"fmt"
-
-	//"os"
+	"strings"
 
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
-	//"github.com/joho/godotenv"
 )
+
+const SQLTYPE = "mssql"
 
 var ConnString string = ""
 
@@ -45,7 +43,7 @@ func GetIterationCount(r *sql.Rows) int {
 
 func GetCount(sqlstring string) (int, error) {
 	count := 0
-	conn, err := sql.Open("mssql", ConnString)
+	conn, err := sql.Open(SQLTYPE, ConnString)
 	if err != nil {
 		return 0, nil
 	}
@@ -67,23 +65,21 @@ func GetCount(sqlstring string) (int, error) {
 
 	return count, nil
 }
-func GetPage(sqlstr string, pageSize int, page int, sortStr string) ([]map[string]interface{}, error) {
+func GetPageReturnMaps(sqlstr string, pageSize int, page int, sortStr string) ([]map[string]interface{}, error) {
 	start := (page-1)*pageSize + 1
 	end := page * pageSize
 	sqlText := "select * from (select ROW_NUMBER() over(order by %s ) as rowNumber,DENSE_RANK() over(order by %s) as stu_rank, * from ( %s ) c ) as temp where rowNumber between %d and %d;"
 	sqlText = fmt.Sprintf(sqlText, sortStr, sortStr, sqlstr, start, end)
 
-	conn, err := sql.Open("mssql", ConnString)
+	conn, err := sql.Open(SQLTYPE, ConnString)
 	if err != nil {
 		return nil, err
-		//fmt.Println("Open connection failed:", err.Error())
 	}
 	defer conn.Close()
 
 	stmt, err := conn.Prepare(sqlText)
 	if err != nil {
 		return nil, err
-		//log.Fatal("Prepare failed:", err.Error())
 	}
 	defer stmt.Close()
 
@@ -96,7 +92,6 @@ func GetPage(sqlstr string, pageSize int, page int, sortStr string) ([]map[strin
 	var ies = make([]interface{}, collen)
 	for i := 0; i < collen; i++ {
 		var ie interface{}
-		//col[cols[i]] = ie
 		ies[i] = &ie
 	}
 
@@ -107,7 +102,6 @@ func GetPage(sqlstr string, pageSize int, page int, sortStr string) ([]map[strin
 		}
 		col = make(map[string]interface{})
 		for i := 0; i < collen; i++ {
-			//p:=ies[i]
 			col[cols[i]] = *ies[i].(*interface{})
 		}
 
@@ -116,7 +110,7 @@ func GetPage(sqlstr string, pageSize int, page int, sortStr string) ([]map[strin
 
 	return result, nil
 }
-func GetPage2(sqlstr string, pageSize int, page int, sortStr string) (*sql.Rows, error) {
+func GetPageReturnRows(sqlstr string, pageSize int, page int, sortStr string) (*sql.Rows, error) {
 	start := (page-1)*pageSize + 1
 	end := page * pageSize
 	sqlText := "select * from (select ROW_NUMBER() over(order by %s ) as rowNumber,DENSE_RANK() over(order by %s) as stu_rank, * from ( %s ) c ) as temp where rowNumber between %d and %d;"
@@ -125,51 +119,35 @@ func GetPage2(sqlstr string, pageSize int, page int, sortStr string) (*sql.Rows,
 	conn, err := sql.Open("mssql", ConnString)
 	if err != nil {
 		return nil, err
-		//fmt.Println("Open connection failed:", err.Error())
 	}
 	defer conn.Close()
 
 	stmt, err := conn.Prepare(sqlText)
 	if err != nil {
 		return nil, err
-		//log.Fatal("Prepare failed:", err.Error())
 	}
 	defer stmt.Close()
 
 	return stmt.Query()
 }
 
-func GetList(sqlstring string) (*sql.Rows, error) {
+func GetListReturnRows(sqlstring string) (*sql.Rows, error) {
 	conn, err := sql.Open("mssql", ConnString)
 	if err != nil {
 		return nil, err
-		//fmt.Println("Open connection failed:", err.Error())
 	}
 	defer conn.Close()
 
 	stmt, err := conn.Prepare(sqlstring)
 	if err != nil {
 		return nil, err
-		//log.Fatal("Prepare failed:", err.Error())
 	}
 	defer stmt.Close()
 
 	return stmt.Query()
-	/*
-		cols, err := rows.Columns()
-		collen := len(cols)
-		var colsdata = make([]interface{}, collen)
-		for i := 0; i < collen; i++ {
-			colsdata[i] = new(interface{})
-			fmt.Print(cols[i])
-			fmt.Print("\t")
-		}
-		fmt.Println()
-	*/
-	//遍历每一行
 
 }
-func ExistRow(rows []map[string]interface{}, key string, val string) bool {
+func ExistRow(rows []map[string]interface{}, key string, val string) (bool, error) {
 	result := false
 	for _, v := range rows {
 		if v[key].(time.Time).Format("2006-01-02") == val {
@@ -178,20 +156,18 @@ func ExistRow(rows []map[string]interface{}, key string, val string) bool {
 		}
 
 	}
-	return result
+	return result, nil
 }
-func GetList2(sqlstring string) ([]map[string]interface{}, error) {
+func GetListReturnMaps(sqlstring string) ([]map[string]interface{}, error) {
 	conn, err := sql.Open("mssql", ConnString)
 	if err != nil {
 		return nil, err
-		//fmt.Println("Open connection failed:", err.Error())
 	}
 	defer conn.Close()
 
 	stmt, err := conn.Prepare(sqlstring)
 	if err != nil {
 		return nil, err
-		//log.Fatal("Prepare failed:", err.Error())
 	}
 	defer stmt.Close()
 	rows, _ := stmt.Query()
@@ -203,7 +179,6 @@ func GetList2(sqlstring string) ([]map[string]interface{}, error) {
 	var ies = make([]interface{}, collen)
 	for i := 0; i < collen; i++ {
 		var ie interface{}
-		//col[cols[i]] = ie
 		ies[i] = &ie
 	}
 
@@ -214,7 +189,6 @@ func GetList2(sqlstring string) ([]map[string]interface{}, error) {
 		}
 		col = make(map[string]interface{})
 		for i := 0; i < collen; i++ {
-			//p:=ies[i]
 			col[cols[i]] = *ies[i].(*interface{})
 		}
 
@@ -241,4 +215,43 @@ func ExecuteNonQuery(sqlstring string) error {
 		return err
 	}
 	return nil
+}
+func Get_order_max(data_sql string, field string) (int, error) {
+	if len(field) == 0 {
+		field = "sequence_"
+	}
+	result := 0
+	var sql strings.Builder
+	sql.WriteString(fmt.Sprintf("select top 1 * from ( %s ) t order by %s desc", data_sql, field))
+	dtMap, err := GetListReturnMaps(sql.String())
+	if err != nil {
+
+		return result, err
+	}
+	if len(dtMap) > 0 {
+		result = dtMap[0][field].(int)
+	}
+	return result, nil
+}
+func Insert_getid(sqlstring string) (int, error) {
+	result := 0
+	var sqlsb strings.Builder
+	sqlsb.WriteString(sqlstring)
+	sqlsb.WriteString(";SELECT @@Identity id;")
+	conn, err := sql.Open("mssql", ConnString)
+	if err != nil {
+		return 0, err
+	}
+	defer conn.Close()
+	stmt, err := conn.Prepare(sqlstring)
+	if err != nil {
+		return 0, err
+	}
+	defer stmt.Close()
+	err = stmt.QueryRow("id").Scan(&result)
+	if err != nil {
+		return 0, err
+	}
+
+	return result, nil
 }
